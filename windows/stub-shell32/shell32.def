@@ -1,0 +1,4 @@
+LIBRARY shell32
+EXPORTS
+    SHGetKnownFolderPath @1
+    StrChrW @2
