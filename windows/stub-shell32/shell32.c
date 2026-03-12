@@ -62,18 +62,6 @@ HRESULT WINAPI SHGetKnownFolderPath(
     return S_OK;
 }
 
-__declspec(dllexport)
-LPCWSTR WINAPI StrChrW(LPCWSTR lpStart, WCHAR wMatch)
-{
-    if (!lpStart)
-        return NULL;
-    for (; *lpStart; lpStart++) {
-        if (*lpStart == wMatch)
-            return lpStart;
-    }
-    return NULL;
-}
-
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 {
     (void)hinstDLL;
