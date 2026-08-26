@@ -178,9 +178,59 @@ rec {
       }
       NIXEOF
 
+      testFailed() {
+        echo "nix-windows-test: $1" >&2
+        if [ -s build.log ]; then
+          echo "nix-windows-test: last 200 of $(wc -l < build.log) log lines follow" >&2
+          tail -n 200 build.log >&2
+        fi
+        # runWithWindowsSsh only reaches its own kill if this script succeeds,
+        # which it no longer always does.
+        kill "$QEMU_PID" 2>/dev/null || true
+        exit 1
+      }
+
       $SCP hello.nix Administrator@127.0.0.1:C:/nix/hello.nix
-      $SSH -n "cd C:\\nix && bin\\nix.exe --debug build -f hello.nix --print-out-paths --no-link -L --extra-experimental-features nix-command" > $out 2>&1 || true
-      cat $out
+
+      # Keep the printed store path and the build log apart: --print-out-paths
+      # writes the path to stdout, while -L and --debug write the log to stderr.
+      # Sending both to $out is what made a failed build report success -- the
+      # derivation then only failed if *writing the log* failed.
+      set +e
+      $SSH -n "cd C:\\nix && bin\\nix.exe --debug build -f hello.nix --print-out-paths --no-link -L --extra-experimental-features nix-command" > out-path 2> build.log
+      buildStatus=$?
+      set -e
+
+      [ "$buildStatus" -eq 0 ] || testFailed "nix.exe exited with status $buildStatus"
+
+      # ssh brings CRLF back from Windows. Take the last *non-empty* line: a
+      # trailing blank would otherwise read as "no path printed" on a build that
+      # worked, which is the same kind of lie this is meant to remove. The
+      # `|| true` is load-bearing -- grep exits non-zero when it filters
+      # everything out, and stdenv runs with `set -o pipefail`, so without it the
+      # script dies here instead of reporting through testFailed.
+      outPath=$(tr -d '\r' < out-path | grep -v '^[[:space:]]*$' | tail -n 1 || true)
+      [ -n "$outPath" ] || testFailed "nix.exe succeeded but printed no store path"
+
+      # Read the output back. The point of this test is that the Windows
+      # derivation builder ran the builder and produced its output, which an
+      # exit status on its own does not show.
+      winPath=$(printf '%s' "$outPath" | sed 's|/|\\|g')
+      $SSH -n "type $winPath" > built 2>> build.log \
+        || testFailed "could not read the built output at $outPath"
+
+      # Matched loosely on purpose: cmd keeps the space before the redirect in
+      # `echo hello > %out%`, so the file is not byte-for-byte "hello".
+      builtContent=$(tr -d '\r\n' < built)
+      case "$builtContent" in
+        *hello*) ;;
+        *) testFailed "built output did not contain 'hello' (got '$builtContent')" ;;
+      esac
+
+      mkdir -p "$out"
+      cp build.log "$out/build.log"
+      printf '%s\n' "$outPath" > "$out/out-path"
+      printf '%s\n' "$builtContent" > "$out/built"
     '';
 
   # Inject Nix binaries into a ValidationOS VHDX using guestfish (no VM needed).
