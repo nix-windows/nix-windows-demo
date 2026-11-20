@@ -112,7 +112,13 @@ rec {
         SSH_USERNAME = "Administrator";
         SSH_PORT = 2222;
         MAX_WAIT = 30;
-        QEMU_OPTS = [ "-nographic" ];
+        # Not `-nographic`, which puts the serial console on stdio, and
+        # makes the build's stdout non-blocking, so later writes to it
+        # (`cat $out`) can fail with `EAGAIN`.
+        QEMU_OPTS = [
+          "-display"
+          "none"
+        ];
 
         requiredSystemFeatures = [ "kvm" ];
         nativeBuildInputs = [
