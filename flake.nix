@@ -2,8 +2,8 @@
   description = "Windows VM tooling for testing Nix on Windows";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/master";
-    nix.url = "github:puffnfresh/nix/windows-integration";
+    nix.url = "github:nix-windows/nix/windows-demo-1";
+    nixpkgs.follows = "nix/nixpkgs";
   };
 
   outputs =
