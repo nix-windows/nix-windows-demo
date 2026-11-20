@@ -185,8 +185,46 @@ rec {
       NIXEOF
 
       $SCP hello.nix Administrator@127.0.0.1:C:/nix/hello.nix
-      $SSH -n "cd C:\\nix && bin\\nix.exe --debug build -f hello.nix --print-out-paths --no-link -L --extra-experimental-features nix-command" > $out 2>&1 || true
-      cat $out
+      # Keep stdout, the built paths, apart from the `--debug` logging on
+      # stderr, so they don't run together; then put each on its own
+      # `OUT=` line at the end of the log. `tee` so the logging streams.
+      exec 3> stdout
+      $SSH -n "cd C:\\nix && bin\\nix.exe --debug build -f hello.nix --print-out-paths --no-link -L --extra-experimental-features nix-command" 2>&1 >&3 3>&- | tee $out >&2 || true
+      exec 3>&-
+      sed 's/^/OUT=/' stdout | tee -a $out
+    '';
+
+  # Boot ValidationOS and run one of Nix's cross-built unit test
+  # executables, e.g. `nix-util-tests`, with its test data. Like
+  # `nixWindowsTest`, this records the log whether or not the tests pass,
+  # with the exit code on the last line.
+  nixWindowsUnitTest =
+    {
+      tests,
+      data,
+      extraDlls ? [ ],
+    }:
+    runWithWindowsSsh "${tests.pname}-windows" ''
+      set -x
+
+      # Dereference symlinks (DLLs are symlinks into the Nix store)
+      STAGING=$(mktemp -d)
+      cp -rL --no-preserve=mode ${tests}/bin "$STAGING/bin"
+      ${lib.concatMapStringsSep "\n" (dll: ''
+        cp -L ${dll}/bin/*.dll "$STAGING/bin/"
+      '') extraDlls}
+      cp -rL --no-preserve=mode ${data} "$STAGING/data"
+
+      $SSH -n "mkdir C:\\tests" 2>/dev/null || true
+      $SCP -r "$STAGING/bin" Administrator@127.0.0.1:C:/tests/bin
+      $SCP -r "$STAGING/data" Administrator@127.0.0.1:C:/tests/data
+      rm -rf "$STAGING"
+
+      # The default shell for OpenSSH on Windows is `cmd.exe`.
+      # `tee` so the log streams as the tests run.
+      exitCode=0
+      $SSH -n "mkdir C:\\tests\\home && set \"HOME=C:\\tests\\home\"&& set \"_NIX_TEST_UNIT_DATA=C:\\tests\\data\"&& C:\\tests\\bin\\${tests.pname}.exe" 2>&1 | tee $out || exitCode=''${PIPESTATUS[0]}
+      echo "EXIT=$exitCode" | tee -a $out
     '';
 
   # Inject Nix binaries into a ValidationOS VHDX using guestfish (no VM needed).

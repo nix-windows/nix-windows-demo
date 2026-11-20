@@ -11,6 +11,14 @@ ValidationOS is a free minimal Windows environment intended for testing.
 nix run
 ```
 
+To check, without opening a window, that Nix can build a derivation in
+the VM, and that Nix's `nix-util-tests` and `nix-store-tests` unit tests
+pass there:
+
+```
+nix flake check -L
+```
+
 This builds a ValidationOS VHDX with Nix baked in and boots it in QEMU. The
 build is deterministic -- no VM is started during the build, files are injected
 directly into the disk image using guestfish.
