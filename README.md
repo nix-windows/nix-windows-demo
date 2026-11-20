@@ -8,7 +8,7 @@ ValidationOS is a free minimal Windows environment intended for testing.
 ## Quick start
 
 ```
-NIXPKGS_ALLOW_UNFREE=1 nix run --impure
+nix run
 ```
 
 This builds a ValidationOS VHDX with Nix baked in and boots it in QEMU. The

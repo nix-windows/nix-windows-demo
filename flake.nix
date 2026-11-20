@@ -14,7 +14,22 @@
     }:
     let
       system = "x86_64-linux";
-      pkgs = nixpkgs.legacyPackages.${system};
+      pkgs = import nixpkgs {
+        inherit system;
+        # The ValidationOS image, and the images made from it, are the
+        # only unfree things needed, so allow just them, rather than
+        # needing `NIXPKGS_ALLOW_UNFREE=1` and `--impure`.
+        config.allowUnfreePredicate =
+          pkg:
+          let
+            name = pkg.name or "";
+          in
+          nixpkgs.lib.hasSuffix "_VALIDATIONOS.iso" name
+          || builtins.elem name [
+            "ValidationOS.vhdx"
+            "nix-windows"
+          ];
+      };
 
       qemu-common = import (nixpkgs + "/nixos/lib/qemu-common.nix") {
         inherit (pkgs) lib stdenv;
