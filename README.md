@@ -1,14 +1,22 @@
 # Nix on Windows Demo
 
 Builds a [Windows ValidationOS](https://learn.microsoft.com/en-us/windows-hardware/manufacture/desktop/validation-os-overview)
-VM image with a cross-compiled [Nix](https://github.com/puffnfresh/nix/tree/windows-integration)
+VM image with a cross-compiled [Nix](https://github.com/nix-windows/nix/tree/windows-demo-1)
 package manager pre-installed. No Windows license or installation required --
 ValidationOS is a free minimal Windows environment intended for testing.
 
 ## Quick start
 
 ```
-NIXPKGS_ALLOW_UNFREE=1 nix run --impure
+nix run
+```
+
+To check, without opening a window, that Nix can build a derivation in
+the VM, and that Nix's `nix-util-tests` and `nix-store-tests` unit tests
+pass there:
+
+```
+nix flake check -L
 ```
 
 This builds a ValidationOS VHDX with Nix baked in and boots it in QEMU. The
